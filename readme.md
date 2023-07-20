@@ -27,7 +27,7 @@
 ```
 @inproceedings{hong23implicit,
             title={Implicit Identity Representation Conditioned Memory Compensation Network for Talking Head video Generation},
-            author={Hong, Fa-Ting and Zhang, Longhao and Shen, Li and Xu, Dan},
+            author={Hong, Fa-Ting and Xu, Dan},
             booktitle={ICCV},
             year={2023}
           }
