@@ -14,7 +14,7 @@
 
 
 :triangular_flag_on_post: **Updates** 
-- :fire::fire::white_check_mark: July 20 2023: Our new talking head work **[MCNet](https://harlanhong.github.io/publications/mcnet.html) was accpted by ICCV2023. The code will be release in ten days.
+- :fire::fire::white_check_mark: July 20 2023: Our new talking head work **[MCNet](https://harlanhong.github.io/publications/mcnet.html)** was accpted by ICCV2023. The code will be release in ten days.
 
 
 
