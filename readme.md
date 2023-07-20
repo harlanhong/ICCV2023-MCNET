@@ -1,5 +1,5 @@
 
-## :book: Implicit Identity Representation Conditioned Memory Compensation Network for Talking Head video Generation (ICCV 2023)
+## :book: Implicit Identity Representation Conditioned Memory Compensation Network for Talking Head Video Generation (ICCV 2023)
 <p align="center">
   <small>:fire: If MCNet is helpful in your photos/projects, please help to :star: it or recommend it to your friends. Thanks:fire:</small>
 </p>
@@ -14,7 +14,7 @@
 
 
 :triangular_flag_on_post: **Updates** 
-- :fire::fire::white_check_mark: July 20 2023: Our new talking head work **[MCNet](https://harlanhong.github.io/publications/mcnet.html)** was accpted by ICCV2023. The code will be release in ten days. You can talk a look at our previous work **[DaGAN](https://harlanhong.github.io/publications/dagan.html)** first.
+- :fire::fire::white_check_mark: July 20 2023: Our new talking head work **[MCNet](https://harlanhong.github.io/publications/mcnet.html)** was accpted by ICCV2023. The code will be released in ten days. You can talk a look at our previous work **[DaGAN](https://harlanhong.github.io/publications/dagan.html)** first.
 
 
 
