@@ -5,7 +5,7 @@
 </p>
 
 
-> [[Paper](https://arxiv.org/abs/2307.09906] &emsp; [[Project Page](https://harlanhong.github.io/publications/mcnet.html)]  &emsp; [[Poster Video](https://www.youtube.com/watch?v=nahsJNjWzGo&t=1s)]<br>
+> [[Paper](https://arxiv.org/abs/2307.09906) &emsp; [[Project Page](https://harlanhong.github.io/publications/mcnet.html)]  &emsp; [[Poster Video](https://www.youtube.com/watch?v=nahsJNjWzGo&t=1s)]<br>
 <!-- > [Fa-Ting Hong](https://harlanhong.github.io), [Longhao Zhang](https://dblp.org/pid/236/7382.html), [Li Shen](https://scholar.google.co.uk/citations?user=ABbCaxsAAAAJ&hl=en), [Dan Xu](https://www.danxurgb.net) <br> -->
 <!-- > The Hong Kong University of Science and Technology, Alibaba Cloud -->
 > [Fa-Ting Hong](https://harlanhong.github.io), [Dan Xu](https://www.danxurgb.net) <br>
