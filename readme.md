@@ -58,7 +58,7 @@ We take the paper version for an example. More models can be found [here](https:
 See ```config/vox-256.yaml``` to get description of each parameter.
 
 ### Pre-trained checkpoint
-The pre-trained checkpoint of face depth network and our DaGAN checkpoints can be found under following link: [OneDrive](https://hkustconnect-my.sharepoint.com/:f:/g/personal/fhongac_connect_ust_hk/EjfeXuzwo3JMn7s0oOPN_q0B81P5Wgu_kbYJAh7uSAKS2w?e=KaQcPk).
+The pre-trained checkpoint of face depth network and our DaGAN checkpoints can be found under following link: [OneDrive]().
 
 **Inference!**
 To run a demo, download checkpoint and run the following command:
@@ -82,7 +82,7 @@ The result will be stored in ```path/to/result```. The driving videos and source
 ### Train on VoxCeleb
 To train a model on specific dataset run:
 ```
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python -m torch.distributed.launch --master_addr="0.0.0.0" --master_port=12347 run.py --config config/vox-256.yaml --name MCNet --batchsize 8 --kp_num 15 --generator Unet_Generator_keypoint_aware --GFM GeneratorFullModel --memsize 1 --kp_distance 10 --feat_consistent 10 --generator_gan 0 --mbunit ExpendMemoryUnit
+CUDA_VISIBLE_DEVICES=0 python -m torch.distributed.launch --master_addr="0.0.0.0" --master_port=12347 run.py --config config/vox-256.yaml --name MCNet --batchsize 8 --kp_num 15 --generator Unet_Generator_keypoint_aware --GFM GeneratorFullModel --memsize 1 --kp_distance 10 --feat_consistent 10 --generator_gan 0 --mbunit ExpendMemoryUnit
 ```
 
 The code will create a folder in the log directory (each run will create a new name-specific directory).
