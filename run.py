@@ -21,12 +21,10 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 import torch
 from torch.utils.tensorboard import SummaryWriter 
 import train
-import train_single_optim
-from train_avd import train_avd
 from reconstruction import reconstruction
 from animate import animate
 import random
-from modules.avd_network import AVDNetwork
+
 import numpy as np
 from collections import OrderedDict
 def seed_torch(seed=1029):
@@ -226,24 +224,17 @@ if __name__ == "__main__":
     #     file.write(kp_detector)
     #     file.write(discriminator)
     #     file.write(generator)
-    if opt.mode == "train_avd":
-        avd_network = AVDNetwork(num_kp=config['model_params']['common_params']['num_kp'],
-                             **config['model_params']['avd_network_params'])
-        avd_network.to(device)
 
     if torch.cuda.device_count() == 1:
         kp_detector = DDP(kp_detector,device_ids=[opt.local_rank],broadcast_buffers=False)
         discriminator = DDP(discriminator,device_ids=[opt.local_rank],broadcast_buffers=False)
         generator = DDP(generator,device_ids=[opt.local_rank],broadcast_buffers=False)
-        if opt.mode == "train_avd":
-            avd_network = DDP(avd_network,device_ids=[opt.local_rank],broadcast_buffers=False)
-            
+       
     else:
         kp_detector = DDP(kp_detector,device_ids=[opt.local_rank])
         discriminator = DDP(discriminator,device_ids=[opt.local_rank])
         generator = DDP(generator,device_ids=[opt.local_rank])
-        if opt.mode == "train_avd":
-            avd_network = DDP(avd_network,device_ids=[opt.local_rank])
+       
     dataset = FramesDataset(is_train=(opt.mode == 'train' or opt.mode == 'train_avd'), **config['dataset_params'])
     dataset.__getitem__(0)
     if not os.path.exists(log_dir):
@@ -256,12 +247,8 @@ if __name__ == "__main__":
     writer = SummaryWriter(os.path.join(log_dir,'log'))
     # print(config)
     if opt.mode == 'train':
-        if opt.single_optim:
-            train_single_optim.train(config, generator, discriminator, kp_detector, opt.checkpoint, log_dir, dataset, opt.local_rank,device,opt,writer)
-        else:
-            train.train(config, generator, discriminator, kp_detector, opt.checkpoint, log_dir, dataset, opt.local_rank,device,opt,writer)
-    elif opt.mode == 'train_avd':
-        train_avd(config,  generator, discriminator, kp_detector, avd_network, opt.checkpoint, log_dir, dataset, opt.local_rank,device,opt,writer)
+       
+        train.train(config, generator, discriminator, kp_detector, opt.checkpoint, log_dir, dataset, opt.local_rank,device,opt,writer)
     elif opt.mode == 'reconstruction':
         print("Reconstruction...")
         reconstruction(config, generator, kp_detector, opt.checkpoint, log_dir, dataset)

@@ -9,14 +9,8 @@ from torch.autograd import grad
 import pdb
 import os
 from collections import OrderedDict
-from modules.memory import Memory
 import modules.losses as losses
-from modules.AdaIN import calc_mean_std,adaptive_instance_normalization
-from modules.losses import CudaCKA
-from modules.focal_frequency_loss import FocalFrequencyLoss as FFL
-from modules import ResNetArcFace
 import losses
-from modules import StyleGAN2GeneratorSFT
 def checkNaN(ret):
     for k in ret:
         if 'visual' in k:
@@ -293,44 +287,11 @@ class GeneratorFullModel(torch.nn.Module):
             self.pyramid = self.pyramid.cuda()
         self.opt = opt
         self.loss_weights = train_params['loss_weights']
-        if self.loss_weights['image_ffl'] or self.loss_weights['feat_ffl']:
-            self.ffl = FFL(loss_weight=1, alpha=1.0)
         if sum(self.loss_weights['perceptual']) != 0:
             self.vgg = Vgg19()
             self.vgg.eval()
             if torch.cuda.is_available():
                 self.vgg = self.vgg.cuda()
-        if self.loss_weights['identity']:
-            self.network_identity = ResNetArcFace(**train_params['network_identity'])
-            id_checkpoint = torch.load('checkpoints/arcface_resnet18.pth',map_location='cpu')
-            ckp_generator = OrderedDict((k.replace('module.',''),v) for k,v in id_checkpoint.items())
-            self.network_identity.load_state_dict(ckp_generator)
-            self.network_identity.eval()
-            if torch.cuda.is_available():
-                self.network_identity = self.network_identity.cuda()
-        if opt.styleGAN:
-            if opt.sft_cross:
-                self.stylegan_decoder = StyleGAN2GeneratorSFT(
-                out_size=512,
-                num_style_feat=512,
-                num_mlp=8,
-                channel_multiplier=1,
-                sft_cross=True)
-            else:
-                self.stylegan_decoder = StyleGAN2GeneratorSFT(
-                out_size=512,
-                num_style_feat=512,
-                num_mlp=8,
-                channel_multiplier=1,
-                sft_half=True)
-            self.stylegan_decoder.load_state_dict(torch.load('checkpoints/StyleGAN2_512_Cmul1_FFHQ_B12G4_scratch_800k.pth',map_location='cpu')['params_ema'],strict=False)
-            for _, param in self.stylegan_decoder.named_parameters():
-                param.requires_grad = False
-            self.stylegan_decoder.eval()
-            if torch.cuda.is_available():
-                self.stylegan_decoder = self.stylegan_decoder.cuda()
-        else:
-            self.stylegan_decoder=None
         self.gauss_kernel = losses.get_gaussian_kernel(21).cuda()
     def gray_resize_for_identity(self, out, size=128):
         out_gray = (0.2989 * out[:, 0, :, :] + 0.5870 * out[:, 1, :, :] + 0.1140 * out[:, 2, :, :])
@@ -355,18 +316,13 @@ class GeneratorFullModel(torch.nn.Module):
         
         kp_source = self.kp_extractor(x['source'],isSource=True)
         kp_driving = self.kp_extractor(x['driving'])
-        generated = self.generator(x['source'], kp_source=kp_source, kp_driving=kp_driving, source_depth = depth_source, driving_depth = depth_driving,driving_image=x['driving'],stylegan_decoder=self.stylegan_decoder)
+        generated = self.generator(x['source'], kp_source=kp_source, kp_driving=kp_driving, source_depth = depth_source, driving_depth = depth_driving,driving_image=x['driving'])
         generated.update({'kp_source': kp_source, 'kp_driving': kp_driving})
         #Check NaN
         checkNaN(generated)
         loss_values = {}
         pyramide_real = self.pyramid(x['driving'])
         pyramide_generated = self.pyramid(generated['prediction'])
-        
-
-
-        if self.loss_weights['vq_commit'] != 0:
-            loss_values["vq_commit"]=self.loss_weights['vq_commit']*generated["commit_loss"].sum()
         if sum(self.loss_weights['perceptual']) != 0:
             value_total = 0
             for scale in self.scales:
@@ -436,38 +392,6 @@ class GeneratorFullModel(torch.nn.Module):
             value_total = self.loss_weights['kp_distance']*(source_dist_loss+driving_dist_loss)
             loss_values['kp_distance'] = value_total
 
-        if self.loss_weights['kp_prior']:
-            # print(kp_driving['value'].shape)     # (bs, k, 2)
-            value_total = 0
-            for i in range(kp_driving['value'].shape[1]):
-                for j in range(kp_driving['value'].shape[1]):
-                    dist = F.pairwise_distance(kp_driving['value'][:, i, :], kp_driving['value'][:, j, :], p=2, keepdim=True) ** 2
-                    dist = 0.1 - dist      # set Dt = 0.1
-                    dd = torch.gt(dist, 0) 
-                    value = (dist * dd).mean()
-                    value_total += value
-            loss_values['kp_prior'] = self.loss_weights['kp_prior'] * value_total
-        if self.loss_weights['kp_consistent']:
-            # print(kp_driving['value'].shape)     # (bs, k, 2)
-            # self.kp_extractor.eval()
-            kp_driving = self.kp_extractor(generated['prediction'].detach())
-
-            loss_values['kp_consistent'] = self.loss_weights['kp_consistent'] * value_total
-
-        if self.loss_weights['kp_scale']:
-            bz,num_kp,kp_dim = kp_source['value'].shape
-            kp_pred = self.kp_extractor(generated['prediction'])
-            pred_mean = kp_pred['value'].mean(1,keepdim=True)
-            driving_mean = kp_driving['value'].mean(1,keepdim=True)
-            pk = kp_source['value']-pred_mean
-            dk = kp_driving['value']- driving_mean
-            pred_dist_loss = torch.sqrt((pk*pk).sum(-1)+1e-8)
-            driving_dist_loss = torch.sqrt((dk*dk).sum(-1)+1e-8)
-            scale_vec = driving_dist_loss/pred_dist_loss
-            bz,n = scale_vec.shape
-            value = torch.abs(scale_vec[:,:n-1]-scale_vec[:,1:]).mean()
-            value_total = self.loss_weights['kp_scale']*value
-            loss_values['kp_scale'] = value_total
 
         if self.loss_weights['feat_consistent']:
             value_total = 0
@@ -483,139 +407,8 @@ class GeneratorFullModel(torch.nn.Module):
      
             loss_values['feat_consistent'] = value_total
         
-        if self.loss_weights['sample_feat_consistent']:
-            value_total = 0
-            if 'visual_value_32' in generated:
-                driving_feat = generated['visual_feat_32']
-                recon_driving_feat = generated['visual_value_32']
-                sample_map = torch.dropout(torch.abs(driving_feat.detach()-recon_driving_feat),0.5,train=True)
-                mean_loss = sample_map.sum()/(sample_map>0).sum()
-                value_total += self.loss_weights['sample_feat_consistent']*mean_loss
-            if 'visual_value_64' in generated:
-                driving_feat = generated['visual_feat_64']
-                recon_driving_feat = generated['visual_value_64']
-                sample_map = torch.dropout(torch.abs(driving_feat.detach()-recon_driving_feat),0.5,train=True)
-                mean_loss = sample_map.sum()/(sample_map>0).sum()
-                value_total += self.loss_weights['sample_feat_consistent']*mean_loss
-            if 'visual_value_128' in generated:
-                driving_feat = generated['visual_feat_128']
-                recon_driving_feat = generated['visual_value_128']
-                sample_map = torch.dropout(torch.abs(driving_feat.detach()-recon_driving_feat),0.5,train=True)
-                mean_loss = sample_map.sum()/(sample_map>0).sum()
-                value_total += self.loss_weights['sample_feat_consistent']*mean_loss
-            if 'visual_value_256' in generated:
-                driving_feat = generated['visual_feat_256']
-                recon_driving_feat = generated['visual_value_256']
-                sample_map = torch.dropout(torch.abs(driving_feat.detach()-recon_driving_feat),0.5,train=True)
-                mean_loss = sample_map.sum()/(sample_map>0).sum()
-                value_total += self.loss_weights['sample_feat_consistent']*mean_loss
-            loss_values['sample_feat_consistent'] = value_total
-        
-        if self.loss_weights['qv_style_similar']:
-            driving_feat = generated['visual_value']
-            recon_driving_feat = generated['visual_feat']
-            input_mean, input_std = calc_mean_std(driving_feat)
-            target_mean, target_std = calc_mean_std(recon_driving_feat)
-            value_total = self.loss_weights['qv_style_similar']*(torch.abs(target_mean.detach()-input_mean)+torch.abs(target_std.detach()-input_std))
-            loss_values['qv_style_similar'] = value_total
-        
-         # warp loss
-        if self.loss_weights['warp_loss']:
-            occlusion_map = generated['occlusion_map']
-            encode_map = self.generator.module.get_encode(x['driving'], occlusion_map)
-            decode_map = generated['warped_encoder_maps']
-            value = 0
-            for i in range(len(encode_map)):
-                value += torch.abs(encode_map[i]-decode_map[-i-1]).mean()
-            loss_values['warp_loss'] = self.loss_weights['warp_loss'] * value
-
-        if self.loss_weights['feat_ffl']:
-            occlusion_map = generated['occlusion_map']
-            encode_map = self.generator.module.get_encode(x['driving'], occlusion_map)
-            decode_map = generated['warped_encoder_maps']
-            value = 0
-            for i in range(len(encode_map)):
-                value += self.ffl(decode_map[-i-1],encode_map[i].detach())
-            loss_values['feat_ffl'] = self.loss_weights['feat_ffl'] * value
-
-        if self.loss_weights['feat_gap']:
-            driving_feat = generated['feat_driving']
-            recon_driving_feat = generated['visual_reconstruction']
-            value_total = self.loss_weights['feat_gap']*torch.abs(driving_feat.detach()-recon_driving_feat).mean()
-            loss_values['feat_gap'] = value_total
-        # print(loss_values)
-        if self.loss_weights['l1']:
-            value_total = self.loss_weights['l1']*torch.abs(x['driving']-generated['prediction']).mean()
-            loss_values['feat_gap'] = value_total
-        if self.loss_weights['reconstruction']:
-            pyramide_generated = self.pyramid(generated['reconstruction'])
-            pyramide_real = self.pyramid(x['source'])
-            value_total = 0
-            for scale in self.scales:
-                x_vgg = self.vgg(pyramide_generated['prediction_' + str(scale)])
-                y_vgg = self.vgg(pyramide_real['prediction_' + str(scale)])
-                for i, weight in enumerate(self.loss_weights['perceptual']):
-                    value = torch.abs(x_vgg[i] - y_vgg[i].detach()).mean()
-                    value_total += self.loss_weights['perceptual'][i] * value
-            loss_values['perceptual_src'] = value_total
-        if self.loss_weights['image_ffl'] and epoch>10:
-            loss_values['image_ffl'] = self.loss_weights['image_ffl']*self.ffl(generated['prediction'], x['driving'])
-        
-        if self.loss_weights['mb_ffl']:
-            value_total = 0
-            def l1(target, source):
-                if target.shape[2] != source.shape[2] or target.shape[3] != source.shape[3]:
-                    target = F.interpolate(target, size=source.shape[2:], mode='bilinear',align_corners=True)
-                return self.ffl(source,target.detach())
-            if 'visual_value_32' in generated:
-                driving_feat = generated['visual_feat_32']
-                recon_driving_feat = generated['visual_value_32']
-                value_total += self.loss_weights['mb_ffl']*l1(driving_feat,recon_driving_feat)
-            if 'visual_value_64' in generated:
-                driving_feat = generated['visual_feat_64']
-                recon_driving_feat = generated['visual_value_64']
-                value_total += self.loss_weights['mb_ffl']*l1(driving_feat,recon_driving_feat)
-            if 'visual_value_128' in generated:
-                driving_feat = generated['visual_feat_128']
-                recon_driving_feat = generated['visual_value_128']
-                value_total += self.loss_weights['mb_ffl']*l1(driving_feat,recon_driving_feat)
-            if 'visual_value_256' in generated:
-                driving_feat = generated['visual_feat_256']
-                recon_driving_feat = generated['visual_value_256']
-                value_total += self.loss_weights['mb_ffl']*l1(driving_feat,recon_driving_feat)
-            if 'visual_shift_value_32' in generated:
-                driving_feat = generated['visual_shift_feat_32']
-                recon_driving_feat = generated['visual_shift_value_32']
-                value_total += self.loss_weights['mb_ffl']*l1(driving_feat,recon_driving_feat)
-            if 'visual_shift_value_64' in generated:
-                driving_feat = generated['visual_shift_feat_64']
-                recon_driving_feat = generated['visual_shift_value_64']
-                value_total += self.loss_weights['mb_ffl']*l1(driving_feat,recon_driving_feat)
-            if 'visual_shift_value_128' in generated:
-                driving_feat = generated['visual_shift_feat_128']
-                recon_driving_feat = generated['visual_shift_value_128']
-                value_total += self.loss_weights['mb_ffl']*l1(driving_feat,recon_driving_feat)
-            if 'visual_shift_value_256' in generated:
-                driving_feat = generated['visual_shift_feat_256']
-                recon_driving_feat = generated['visual_shift_value_256']
-                value_total += self.loss_weights['mb_ffl']*l1(driving_feat,recon_driving_feat)
-            loss_values['mb_ffl'] = value_total
-        
-        if self.loss_weights['identity']:
-            out_gray = self.gray_resize_for_identity(generated['prediction'])
-            gt_gray = self.gray_resize_for_identity(x['source'])
-            identity_gt = self.network_identity(gt_gray).detach()
-            identity_out = self.network_identity(out_gray)
-            l_identity = F.l1_loss(identity_out, identity_gt, reduction='mean') * self.loss_weights['identity']
-            loss_values['identity'] = l_identity
-        
-        if self.loss_weights['FDIT']:
-            x_real_freq = losses.find_fake_freq(x['driving'], self.gauss_kernel)  
-            x_rec2_freq = losses.find_fake_freq(generated['prediction'], self.gauss_kernel)
-            loss_rec_blur = F.l1_loss(x_rec2_freq, x_real_freq)
-            loss_recon_fft = losses.fft_L1_loss_color(x['driving'], generated['prediction'])
-            loss_values['FDIT'] = self.loss_weights['FDIT']*(loss_rec_blur+loss_recon_fft)
-        
+ 
+   
         return loss_values, generated
 
 

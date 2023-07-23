@@ -137,9 +137,7 @@ class FramesDataset(Dataset):
             source = np.array(video_array[0], dtype='float32')
             driving = np.array(video_array[1], dtype='float32')
             # driving_diff = np.array(video_array[2], dtype='float32')
-
             out['driving'] = T.Resize(self.frame_shape)(torch.tensor(driving.transpose((2, 0, 1))))
-
             out['source'] = T.Resize(self.frame_shape)(torch.tensor(source.transpose((2, 0, 1))))
             # out['driving_diff'] = driving_diff.transpose((2, 0, 1))
 
