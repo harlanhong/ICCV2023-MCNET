@@ -58,7 +58,7 @@ We take the paper version for an example. More models can be found [here](https:
 See ```config/vox-256.yaml``` to get description of each parameter.
 
 ### Pre-trained checkpoint
-The pre-trained checkpoint of face depth network and our DaGAN checkpoints can be found under following link: [OneDrive]().
+The pre-trained checkpoint of face depth network and our MCNet checkpoints can be found under following link: [OneDrive](https://hkustconnect-my.sharepoint.com/:f:/g/personal/fhongac_connect_ust_hk/Eow4kyCdz_9Ctw-Xj8cA0KwBVyh7ohx-x4-0UhgWiaSpkg?e=TOlwpa).
 
 **Inference!**
 To run a demo, download checkpoint and run the following command:
@@ -69,7 +69,6 @@ CUDA_VISIBLE_DEVICES=0 python demo.py  --config config/vox-256.yaml --driving_vi
 <!-- python demo.py  --config config/vox-256.yaml --driving_video /data/fhongac/origDataset/vox1/train/id10686#zDkgVesX7NU#001423#001797.mp4 --checkpoint checkpoints/00000099-checkpoint.pth.tar --relative --adapt_scale --kp_num 15 --generator Unet_Generator_keypoint_aware --result_video synthetic_2.mp4  --source_image /data/fhongac/origDataset/vox1_frames/train/id10686#zDkgVesX7NU#001423#001797.mp4/0000000.png --mbunit ExpendMemoryUnit --memsize 1  -->
 
 The result will be stored in ```path/to/result```. The driving videos and source images should be cropped before it can be used in our method. To obtain some semi-automatic crop suggestions you can use ```python crop-video.py --inp some_youtube_video.mp4```. It will generate commands for crops using ffmpeg. 
-
 
 
 ## :computer: Training
