@@ -16,6 +16,10 @@
   <img src="assets/compare-same-id.png">
 </p>
 
+### Interesting Sample
+https://github.com/harlanhong/ICCV2023-MCNET/assets/19970321/4e8af5f6-b042-4ced-af2c-93c95e1b7009
+
+
 
 :triangular_flag_on_post: **Updates** 
 - :fire::fire::white_check_mark: July 20 2023: Our new talking head work **[MCNet](https://harlanhong.github.io/publications/mcnet.html)** was accpted by ICCV2023. The code will be released in ten days. You can talk a look at our previous work **[DaGAN](https://harlanhong.github.io/publications/dagan.html)** first.
